@@ -20,12 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import Stores, get_typestore
+from mcap.reader import make_reader
+from mcap_protobuf.reader import read_protobuf_messages
 
 from . import ros_utils
 
@@ -34,30 +37,44 @@ from . import ros_utils
 def get_topic_info(bag_file, ros_version="JAZZY") -> List[tuple]:
     """Get topic information from bag file."""
     topics = []
-    ros_store = getattr(Stores, f"ROS2_{ros_version}")
-    typestore = get_typestore(ros_store)
-    with AnyReader([Path(bag_file).parent], default_typestore=typestore) as reader:
-        for conn in reader.connections:
-            topics.append((conn.topic, conn.msgtype, conn.msgcount))
+
+    with open(bag_file, "rb") as f:
+        reader = make_reader(f)
+        summary = reader.get_summary()
+        
+        if summary and summary.channels:
+            for channel_id, channel in summary.channels.items():
+                msg_count = summary.statistics.message_count if summary.statistics else 0
+                topics.append((channel.topic, channel.message_encoding, msg_count))
+                
     return topics
 
 
 def get_total_message_count(bag_file, ros_version="JAZZY") -> int:
     """Get total message count from bag file."""
-    ros_store = getattr(Stores, f"ROS2_{ros_version}")
-    typestore = get_typestore(ros_store)
-    with AnyReader([Path(bag_file).parent], default_typestore=typestore) as reader:
-        return sum(conn.msgcount for conn in reader.connections)
+    msgs = 0
+
+    with open(bag_file, "rb") as f:
+        reader = make_reader(f)
+        summary = reader.get_summary()
+        if summary and summary.statistics:
+            print("HAPPY")
+            return summary.statistics.message_count
+        
+        if summary and summary.channels:
+            for channel_id, channel in summary.channels.items():
+                msg_count = summary.statistics.message_count if summary.statistics else 0
+                msgs += msg_count
+
+    return msgs
 
 
-def iterate_all_messages(bag_file: str, ros_version: str = "JAZZY"):
-    """Generator to iterate through all messages in the rosbag efficiently."""
-    ros_store = getattr(Stores, f"ROS2_{ros_version}")
-    typestore = get_typestore(ros_store)
-    with AnyReader([Path(bag_file).parent], default_typestore=typestore) as reader:
-        for connection, timestamp, rawdata in reader.messages():
-            msg = reader.deserialize(rawdata, connection.msgtype)
-            yield timestamp, connection.topic, msg
+def iterate_all_messages(bag_file: str):
+    """Generator to iterate through all messages in the mcap file efficiently."""
+    
+    with open(bag_file, "rb") as f:
+        for message in read_protobuf_messages(f):
+            yield message.log_time, message.topic, message.proto_msg
 
 
 def combine_tf_static_messages(tf_messages: List[Any]) -> Optional[Any]:
