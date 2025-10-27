@@ -469,9 +469,9 @@ class MainWindow(QMainWindow):
             "image": [
                 t
                 for t, m, _ in self.topics
-                if m in ["sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"]
+                if m in ["sensor_msgs/msg/Image", "proto.tk.msg.Image3m"]
             ],
-            "pointcloud": [t for t, m, _ in self.topics if m == "sensor_msgs/msg/PointCloud2"],
+            "pointcloud": [t for t, m, _ in self.topics if m == "proto.tk.msg.Cloud10m"],
             "camerainfo": [t for t, m, _ in self.topics if m == "sensor_msgs/msg/CameraInfo"],
         }
 
