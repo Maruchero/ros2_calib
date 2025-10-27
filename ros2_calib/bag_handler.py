@@ -45,7 +45,8 @@ def get_topic_info(bag_file, ros_version="JAZZY") -> List[tuple]:
         if summary and summary.channels:
             for channel_id, channel in summary.channels.items():
                 msg_count = summary.statistics.message_count if summary.statistics else 0
-                topics.append((channel.topic, channel.message_encoding, msg_count))
+                schema = summary.schemas[channel.schema_id]
+                topics.append((channel.topic, schema.name, msg_count))
                 
     return topics
 
@@ -58,7 +59,6 @@ def get_total_message_count(bag_file, ros_version="JAZZY") -> int:
         reader = make_reader(f)
         summary = reader.get_summary()
         if summary and summary.statistics:
-            print("HAPPY")
             return summary.statistics.message_count
         
         if summary and summary.channels:
