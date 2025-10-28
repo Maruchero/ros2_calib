@@ -25,6 +25,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
+import cv2
+import numpy as np
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import Stores, get_typestore
 from mcap.reader import make_reader
@@ -69,7 +71,7 @@ def get_total_message_count(bag_file, ros_version="JAZZY") -> int:
     return msgs
 
 
-def iterate_all_messages(bag_file: str):
+def iterate_all_messages(bag_file: str, ros_version="JAZZY"):
     """Generator to iterate through all messages in the mcap file efficiently."""
     
     with open(bag_file, "rb") as f:
@@ -293,6 +295,26 @@ def convert_to_mock(raw_msg, msg_type):
         )
         mock_img._type = "sensor_msgs/msg/CompressedImage"
         return mock_img
+    if msg_type == "proto.tk.msg.Image3m":
+        compressed_data_np = np.frombuffer(raw_msg.data, dtype=np.uint8)
+        uncompressed_image_np = cv2.imdecode(compressed_data_np, cv2.IMREAD_COLOR)
+
+        if uncompressed_image_np is None:
+            print("[ERROR] Failed to decode compressed image data for proto.tk.msg.Image3m.")
+            return None 
+
+        step = uncompressed_image_np.shape[1] * uncompressed_image_np.shape[2] * uncompressed_image_np.dtype.itemsize
+        raw_pixel_data = uncompressed_image_np.tobytes()
+
+        return ros_utils.Image(
+            header=raw_msg.head,
+            height=uncompressed_image_np.shape[0],
+            width=uncompressed_image_np.shape[1],
+            encoding="bgr8",
+            is_bigendian=False,
+            step=step,
+            data=raw_pixel_data,
+        )
     elif msg_type == "sensor_msgs/msg/PointCloud2":
         fields = [
             ros_utils.PointField(name=f.name, offset=f.offset, datatype=f.datatype, count=f.count)
