@@ -60,6 +60,7 @@ from .common import UIStyles
 from .frame_selection_widget import FrameSelectionWidget
 from .lidar2lidar_o3d_widget import launch_lidar2lidar_calibration
 from .tf_graph_widget import TFGraphWidget
+from . import views
 
 
 class MainWindow(QMainWindow):
@@ -99,7 +100,7 @@ class MainWindow(QMainWindow):
         self.setup_results_view()
 
         # Start with the calibration type selection view
-        self.stacked_widget.setCurrentIndex(0)
+        self.stacked_widget.setCurrentIndex(views.CALIBRATION_SELECTION_VIEW)
 
     def setup_calibration_type_view(self):
         """Setup the calibration type selection view."""
@@ -169,7 +170,7 @@ class MainWindow(QMainWindow):
         self.calibration_type = calib_type
         print(f"[DEBUG] Selected calibration type: {calib_type}")
         self.update_load_view_for_calibration_type()
-        self.stacked_widget.setCurrentIndex(1)
+        self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW)
 
     def _apply_button_shadow(self, button: QPushButton) -> None:
         shadow = QGraphicsDropShadowEffect(button)
@@ -276,7 +277,7 @@ class MainWindow(QMainWindow):
 
         back_button_layout = QHBoxLayout()
         self.back_button = QPushButton("← Back to Topic Selection")
-        self.back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(1))
+        self.back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW))
         back_button_layout.addWidget(self.back_button)
         back_button_layout.addStretch()
         self.transform_layout.addLayout(back_button_layout)
@@ -730,7 +731,7 @@ class MainWindow(QMainWindow):
                 self.frame_selection_widget.set_frame_samples(
                     self.frame_samples, selected_topics_data["image_topic"]
                 )
-                self.stacked_widget.setCurrentIndex(3)  # Switch to Frame Selection View
+                self.stacked_widget.setCurrentIndex(views.FRAME_SELECTION_VIEW)
 
             else:  # LiDAR2LiDAR multi-frame (take the first)
                 pointcloud_topic = selected_topics_data["pointcloud_topic"]
@@ -784,7 +785,7 @@ class MainWindow(QMainWindow):
                     f"Select Initial Transformation: {self.lidar_frame} → $camera_frame_id"
                 )
                 self.load_tf_topics_in_transform_view()
-                self.stacked_widget.setCurrentIndex(2)  # Switch to Transform View
+                self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
 
         if hasattr(self, "processing_worker") and self.processing_worker:
             self.processing_worker.deleteLater()
@@ -813,7 +814,7 @@ class MainWindow(QMainWindow):
             f"Select Initial Transformation: {self.lidar_frame} → {self.lidar2_frame}"
         )
         self.load_tf_topics_in_transform_view()
-        self.stacked_widget.setCurrentIndex(2)  # Switch to Transform View
+        self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
 
     def on_frame_selected(self, frame_index: int):
         print(f"[DEBUG] Frame {frame_index + 1} selected for LiDAR2Cam calibration.")
@@ -836,7 +837,7 @@ class MainWindow(QMainWindow):
             f"Select Initial Transformation: {self.lidar_frame} → {self.camera_frame}"
         )
         self.load_tf_topics_in_transform_view()
-        self.stacked_widget.setCurrentIndex(2)
+        self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
 
     def on_processing_failed(self, error_message):
         print(f"[ERROR] Rosbag processing failed: {error_message}")
