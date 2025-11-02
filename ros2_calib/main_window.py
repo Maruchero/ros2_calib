@@ -47,6 +47,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ros2_calib.dataload.calib_manager_handler import CalibManagerHandler
+
 from . import ros_utils
 from . import tf_transformations as tf
 from .bag_handler import (
@@ -431,7 +433,7 @@ class MainWindow(QMainWindow):
         )
         if file_path:
             self.camerainfo_path_label.setText(file_path)
-            self.camerainfo_file_path = file_path
+            self.calib_manager_handler = CalibManagerHandler(file_path)
             self.update_proceed_button_state()
 
     def find_yaml_file(self, mcap_path):
@@ -939,19 +941,8 @@ class MainWindow(QMainWindow):
 
     def load_tf_topics_in_transform_view(self):
         self.tf_topic_combo.clear()
-        tf_messages = self.selected_topics.get("tf_messages", self.tf_messages)
-        if tf_messages:
-            tf_topics = list(tf_messages.keys())
-            self.tf_topic_combo.addItems(tf_topics)
-            tf_static = next(
-                (t for t in tf_topics if "tf_static" in t), tf_topics[0] if tf_topics else None
-            )
-            if tf_static:
-                self.tf_topic_combo.setCurrentText(tf_static)
-                self.load_tf_tree_from_preloaded()
-        else:
-            self.tf_topic_combo.addItem("No TF topics found")
-            self.load_tf_button.setEnabled(False)
+        self.tf_topic_combo.addItems(["Calib manager TFs"])
+        self.load_tf_tree_from_preloaded()
 
     def on_tf_topic_changed(self):
         self.tf_tree = {}
@@ -959,66 +950,20 @@ class MainWindow(QMainWindow):
         self.show_graph_button.setEnabled(False)
 
     def load_tf_tree(self):
+        """Used to prepare to transform view"""
         self.load_tf_tree_from_preloaded()
 
     def load_tf_tree_from_preloaded(self):
-        topic_name = self.tf_topic_combo.currentText()
-        tf_messages = self.selected_topics.get("tf_messages", self.tf_messages)
-        if not topic_name or topic_name not in tf_messages:
-            return
-
-        self.tf_tree = self.parse_preloaded_tf_message(tf_messages[topic_name])
+        self.tf_tree = self.calib_manager_handler.tf_tree
         self.update_tf_info_display()
         self.try_find_transform()
         self.show_graph_button.setEnabled(bool(self.tf_tree))
 
-    def parse_preloaded_tf_message(self, msg_data) -> Dict[str, Dict]:
-        tf_tree = {}
-        for transform_stamped in self.deserialize_tf_message(msg_data).transforms:
-            parent = transform_stamped.header.frame_id
-            child = transform_stamped.child_frame_id
-            tf_tree.setdefault(parent, {})[child] = {
-                "transform": ros_utils.transform_to_numpy(transform_stamped.transform)
-            }
-        return tf_tree
-
-    def deserialize_tf_message(self, msg_data) -> ros_utils.TFMessage:
-        """
-        Convert raw rosbag TF message data to our internal mock TFMessage format.
-        This version is corrected to handle metadata fields from the rosbags library.
-        """
-        if not hasattr(msg_data, "transforms"):
-            return ros_utils.TFMessage(transforms=[])
-
-        transforms = []
-        for transform_msg in msg_data.transforms:
-            # Get the translation and rotation objects
-            translation_obj = transform_msg.transform.translation
-            rotation_obj = transform_msg.transform.rotation
-
-            # Instead of using **vars(), we explicitly access the x, y, z, w attributes.
-            # This is safer and ignores any extra metadata like '__msgtype__'.
-            new_transform = ros_utils.Transform(
-                translation=ros_utils.Vector3(
-                    x=translation_obj.x, y=translation_obj.y, z=translation_obj.z
-                ),
-                rotation=ros_utils.Quaternion(
-                    x=rotation_obj.x, y=rotation_obj.y, z=rotation_obj.z, w=rotation_obj.w
-                ),
-            )
-
-            new_stamped = ros_utils.TransformStamped(
-                header=ros_utils.Header(frame_id=transform_msg.header.frame_id),
-                child_frame_id=transform_msg.child_frame_id,
-                transform=new_transform,
-            )
-            transforms.append(new_stamped)
-
-        return ros_utils.TFMessage(transforms=transforms)
-
     def try_find_transform(self):
         if not self.tf_tree:
+            print("[WARN] No TF tree loaded; cannot find transform.")
             return
+        print(f"[DEBUG] lidar_frame: {self.lidar_frame} | camera_frame: {self.camera_frame}")
         source = self.lidar_frame
         target = self.camera_frame if self.calibration_type == "LiDAR2Cam" else self.lidar2_frame
         if (transform_matrix := self.find_transform_path(source, target)) is not None:
