@@ -724,11 +724,10 @@ class MainWindow(QMainWindow):
             self.frame_samples = raw_messages["frame_samples"]
 
             if self.calibration_type == "LiDAR2Cam":
+                image_topic = selected_topics_data["image_topic"]
                 pointcloud_topic = selected_topics_data["pointcloud_topic"]
-
-                self.lidar_frame = self.extract_frame_id(
-                    self.frame_samples[pointcloud_topic][0]["data"]
-                )
+                self.lidar_frame = pointcloud_topic.split("/")[1]
+                self.camera_frame = image_topic.split("/")[1]
 
                 self.frame_selection_widget.set_frame_samples(
                     self.frame_samples, selected_topics_data["image_topic"]
@@ -770,8 +769,8 @@ class MainWindow(QMainWindow):
             else:  # Fallback for LiDAR2Cam single frame
                 image_topic = selected_topics_data["image_topic"]
                 pointcloud_topic = selected_topics_data["pointcloud_topic"]
-
-                self.lidar_frame = self.extract_frame_id(raw_messages[pointcloud_topic])
+                self.lidar_frame = pointcloud_topic.split("/")[1]
+                self.camera_frame = image_topic.split("/")[1]
 
                 self.selected_topics = {
                     "image_topic": image_topic,
@@ -784,7 +783,7 @@ class MainWindow(QMainWindow):
                     "tf_messages": self.tf_messages,
                 }
                 self.tf_title_label.setText(
-                    f"Select Initial Transformation: {self.lidar_frame} → $camera_frame_id"
+                    f"Select Initial Transformation: {self.lidar_frame} → {self.camera_frame}"
                 )
                 self.load_tf_topics_in_transform_view()
                 self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
@@ -822,16 +821,13 @@ class MainWindow(QMainWindow):
         print(f"[DEBUG] Frame {frame_index + 1} selected for LiDAR2Cam calibration.")
         image_topic = self.selected_topics_data["image_topic"]
         pointcloud_topic = self.selected_topics_data["pointcloud_topic"]
-        camerainfo_topic = self.selected_topics_data["camerainfo_topic"]
         self.selected_topics = {
             "image_topic": image_topic,
             "pointcloud_topic": pointcloud_topic,
-            "camerainfo_topic": camerainfo_topic,
             "topic_types": self.topic_types,
             "raw_messages": {
                 image_topic: self.frame_samples[image_topic][frame_index]["data"],
                 pointcloud_topic: self.frame_samples[pointcloud_topic][frame_index]["data"],
-                camerainfo_topic: self.frame_samples[camerainfo_topic][frame_index]["data"],
             },
             "tf_messages": self.tf_messages,
         }
@@ -871,10 +867,7 @@ class MainWindow(QMainWindow):
             self.selected_topics["raw_messages"][self.selected_topics["pointcloud_topic"]],
             self.selected_topics["topic_types"][self.selected_topics["pointcloud_topic"]],
         )
-        camerainfo_msg = convert_to_mock(
-            self.selected_topics["raw_messages"][self.selected_topics["camerainfo_topic"]],
-            self.selected_topics["topic_types"][self.selected_topics["camerainfo_topic"]],
-        )
+        camerainfo_msg = self.calib_manager_handler.cameras[self.camera_frame]
         self.calibration_widget = CalibrationWidget(
             image_msg, pointcloud_msg, camerainfo_msg, ros_utils, initial_transform
         )

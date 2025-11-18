@@ -4,34 +4,15 @@ It contains information about the transformations between the various sensors
 on the car and about the intrinsic parameters of the cameras.
 """
 
-from collections import defaultdict
 import os
-from attr import dataclass
 import numpy as np
 import yaml
-from typing import Tuple
+from typing import Dict, Tuple
 from scipy.spatial.transform import Rotation
+from ros2_calib.ros_utils import CameraInfo, Header
 
 
 Vec3f = Tuple[float, float, float]
-
-
-@dataclass
-class CameraIntrinsics:
-    width: int
-    height: int
-    fisheye: bool
-    fx: float
-    fy: float
-    cx: float
-    cy: float
-    distortion_coeffs: list
-
-
-@dataclass
-class Transformation:
-    translation: Vec3f
-    rotation: Vec3f
 
 
 class CalibManagerHandler:
@@ -43,7 +24,7 @@ class CalibManagerHandler:
         if not os.path.isfile(filepath):
             raise FileNotFoundError(f"Calib manager file not found: {filepath}")
         self.filepath = filepath
-        self.cameras = {}
+        self.cameras: Dict[str, CameraInfo] = {}
         self.tf_tree = {}
         self.load_calib_manager()
         print("[DEBUG] Correctly loaded calib_manager.yaml file.")
@@ -82,15 +63,24 @@ class CalibManagerHandler:
         cam_entries = data.get("tf_manager", {}).get("tree", {}).get("calibs", [])
         for cam_data in cam_entries:
             camera_name = cam_data["frameId"]
-            camera = CameraIntrinsics(
-                cam_data["width"],
-                cam_data["height"],
-                cam_data["fisheye"],
-                cam_data["K"][0],
-                cam_data["K"][1],
-                cam_data["K"][2],
-                cam_data["K"][3],
-                cam_data["D"],
+            fx, fy, cx, cy = cam_data["K"]
+            k = [
+                fx, 0.0, cx,
+                0.0, fy, cy,
+                0.0, 0.0, 1.0,
+            ]
+            camera = CameraInfo(
+                header=Header(
+                    stamp=0,
+                    frame_id=camera_name,
+                ),
+                height=cam_data["height"],
+                width=cam_data["width"],
+                distortion_model="plumb_bob",
+                d=cam_data["D"][:5],  # Take only first 5 distortion coefficients
+                k=k,
+                r=[],
+                p=[],
             )
             self.cameras[camera_name] = camera
 
