@@ -26,6 +26,8 @@ from typing import List
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from ros2_calib.tkCloudProtoConverter import protoCloudToNumpy
+
 from . import tf_transformations as transformations
 
 
@@ -128,27 +130,31 @@ def fields_to_dtype(fields, point_step):
     return np_dtype_list
 
 
-def pointcloud2_to_array(cloud_msg, squeeze=True):
-    dtype_list = fields_to_dtype(cloud_msg.fields, cloud_msg.point_step)
-    cloud_arr = np.frombuffer(cloud_msg.data, dtype_list)
-    cloud_arr = cloud_arr[
-        [
-            fname
-            for fname, _type in dtype_list
-            if not (fname[: len(DUMMY_FIELD_PREFIX)] == DUMMY_FIELD_PREFIX)
-        ]
-    ]
-
-    if squeeze and cloud_msg.height == 1:
-        return np.reshape(cloud_arr, (cloud_msg.width,))
-    else:
-        return np.reshape(cloud_arr, (cloud_msg.height, cloud_msg.width))
-
-
 def pointcloud2_to_structured_array(cloud_msg, remove_nans=True):
-    cloud_arr = pointcloud2_to_array(cloud_msg, squeeze=False)
+    plain_cloud_arr = protoCloudToNumpy(cloud_msg)
+
+    # The application requires a structured array with fields 'x', 'y', 'z', 'intensity'.
+    # We create one from the plain array returned by the custom parser.
+    # Based on the PointXYZICT definition, the fields are in the order:
+    # x, y, z, intensity, channel, time. We take the first 4 columns.
+    required_dtype = np.dtype([
+        ('x', np.float32),
+        ('y', np.float32),
+        ('z', np.float32),
+        ('intensity', np.float32)
+    ])
+    
+    # Create an empty structured array
+    cloud_arr = np.empty(plain_cloud_arr.shape[0], dtype=required_dtype)
+
+    # Map columns from the plain array to the fields of the structured array
+    cloud_arr['x'] = plain_cloud_arr[:, 0]
+    cloud_arr['y'] = plain_cloud_arr[:, 1]
+    cloud_arr['z'] = plain_cloud_arr[:, 2]
+    cloud_arr['intensity'] = plain_cloud_arr[:, 3]
+
     if remove_nans:
-        # Check for x, y, z fields before attempting to filter NaNs
+        # This block will now work correctly with the new structured `cloud_arr`
         if (
             "x" in cloud_arr.dtype.names
             and "y" in cloud_arr.dtype.names
@@ -160,6 +166,7 @@ def pointcloud2_to_structured_array(cloud_msg, remove_nans=True):
                 & np.isfinite(cloud_arr["z"])
             )
             cloud_arr = cloud_arr[mask]
+            
     return cloud_arr
 
 
