@@ -130,8 +130,8 @@ class CalibrationWidget(QWidget):
         self.correspondences = {}  # Master LiDAR to camera correspondences
         self.lidar_to_lidar_correspondences = {}  # Second LiDAR to master LiDAR correspondences
 
-        # Use inverse as transform point cloud to camera frame
-        self.initial_extrinsics = np.linalg.inv(initial_transform)
+        # The initial transform is the transformation from the LiDAR frame to the camera frame (extrinsics).
+        self.initial_extrinsics = initial_transform
         self.extrinsics = np.copy(self.initial_extrinsics)
         self.second_lidar_transform = np.eye(4)  # Transform from master to second LiDAR
         self.occlusion_mask = None

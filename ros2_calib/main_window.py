@@ -1094,7 +1094,21 @@ class MainWindow(QMainWindow):
         self.transform_display.setPlainText(combined_display)
 
     def confirm_transformation(self):
-        self.proceed_to_calibration(self.current_transform)
+        transform_to_pass = np.copy(self.current_transform)
+
+        if self.calibration_type == "LiDAR2Cam":
+            # The transform from the calib manager is in FLU (Front-Left-Up) convention.
+            # OpenCV's camera model (and thus the projection functions) assume RDF (Right-Down-Front).
+            # We convert the transform to the RDF convention for the calibration widget.
+            flu_to_rdf = np.array([
+                [0, -1, 0, 0],
+                [0, 0, -1, 0],
+                [1, 0, 0, 0],
+                [0, 0, 0, 1]
+            ], dtype=np.float64)
+            transform_to_pass = flu_to_rdf @ transform_to_pass
+
+        self.proceed_to_calibration(transform_to_pass)
 
     def show_calibration_results(self, calibration_results):
         print("[DEBUG] show_calibration_results called on main thread.")
