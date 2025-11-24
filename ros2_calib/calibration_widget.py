@@ -553,7 +553,7 @@ class CalibrationWidget(QWidget):
         self.extrinsics = np.identity(4)
         self.extrinsics[:3, 3] = [x, y, z]
         self.extrinsics[:3, :3] = Rotation.from_euler(
-            "xyz", [roll, pitch, yaw], degrees=True
+            "XYZ", [roll, pitch, yaw], degrees=True
         ).as_matrix()
         self.redraw_points()
         self.update_results_display()
@@ -564,7 +564,7 @@ class CalibrationWidget(QWidget):
 
     def _update_inputs_from_extrinsics(self):
         tvec = self.extrinsics[:3, 3]
-        rpy = Rotation.from_matrix(self.extrinsics[:3, :3]).as_euler("xyz", degrees=True)
+        rpy = Rotation.from_matrix(self.extrinsics[:3, :3]).as_euler("XYZ", degrees=True)
         self.dof_widgets["x"].setValue(tvec[0])
         self.dof_widgets["y"].setValue(tvec[1])
         self.dof_widgets["z"].setValue(tvec[2])
