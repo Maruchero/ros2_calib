@@ -42,7 +42,7 @@ class CalibManagerHandler:
         yaw_rad = np.radians(yaw)
 
         # Create rotation matrix from Euler angles (ZYX convention typical for vehicles)
-        rotation = Rotation.from_euler("zyx", [yaw_rad, pitch_rad, roll_rad])
+        rotation = Rotation.from_euler("xyz", [roll_rad, pitch_rad, yaw_rad])
         rot_matrix = rotation.as_matrix()
 
         # Create transformation matrix
