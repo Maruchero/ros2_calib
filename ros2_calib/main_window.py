@@ -963,8 +963,8 @@ class MainWindow(QMainWindow):
             self.current_transform = transform_matrix
             self.update_transform_display()
             self.update_manual_inputs_from_matrix()
-
-    def find_transform_path(self, from_frame: str, to_frame: str) -> Optional[np.ndarray]:
+            
+    def find_transform_path(self, from_frame: str, to_frame: str):
         if from_frame == to_frame:
             return np.eye(4)
         if not self.tf_tree:
@@ -972,8 +972,8 @@ class MainWindow(QMainWindow):
 
         from collections import deque
 
-        q = deque([(from_frame, np.eye(4))])
-        visited = {from_frame}
+        q = deque([(to_frame, np.eye(4))])
+        visited = {to_frame}
 
         adj = {frame: [] for frame in self._get_all_tf_frames()}
         for p, children in self.tf_tree.items():
@@ -983,7 +983,7 @@ class MainWindow(QMainWindow):
 
         while q:
             curr_frame, T = q.popleft()
-            if curr_frame == to_frame:
+            if curr_frame == from_frame:
                 return T
             for neighbor, t in adj.get(curr_frame, []):
                 if neighbor not in visited:

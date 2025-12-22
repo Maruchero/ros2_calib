@@ -8,7 +8,7 @@ import os
 import numpy as np
 import yaml
 from typing import Dict, Tuple
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as R
 from ros2_calib.ros_utils import CameraInfo, Header
 
 
@@ -41,8 +41,8 @@ class CalibManagerHandler:
         pitch_rad = np.radians(pitch)
         yaw_rad = np.radians(yaw)
 
-        # Create rotation matrix from Euler angles (ZYX convention typical for vehicles)
-        rotation = Rotation.from_euler("xyz", [roll_rad, pitch_rad, yaw_rad])
+        # Create rotation matrix from Euler angles
+        rotation = R.from_euler("xyz", [roll_rad, pitch_rad, yaw_rad])
         rot_matrix = rotation.as_matrix()
 
         # Create transformation matrix
