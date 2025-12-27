@@ -863,6 +863,7 @@ class MainWindow(QMainWindow):
             self.selected_topics["raw_messages"][self.selected_topics["image_topic"]],
             self.selected_topics["topic_types"][self.selected_topics["image_topic"]],
         )
+        # TODO this convert_to_mock does nothing because the type of pointcloud is not supported by it
         pointcloud_msg = convert_to_mock(
             self.selected_topics["raw_messages"][self.selected_topics["pointcloud_topic"]],
             self.selected_topics["topic_types"][self.selected_topics["pointcloud_topic"]],
@@ -880,6 +881,7 @@ class MainWindow(QMainWindow):
         pc_topic1 = self.selected_topics["pointcloud_topic"]
         pc_topic2 = self.selected_topics["pointcloud2_topic"]
 
+        # TODO these convert_to_mock does nothing because the type of pointcloud is not supported by it
         pointcloud_msg1 = convert_to_mock(raw_msgs[pc_topic1], topic_types[pc_topic1])
         pointcloud_msg2 = convert_to_mock(raw_msgs[pc_topic2], topic_types[pc_topic2])
 
