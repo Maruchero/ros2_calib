@@ -60,6 +60,15 @@ from .common import AppConstants, Colors, UIStyles
 from .lidar_cleaner import LiDARCleaner
 
 
+FLU_TO_RDF = np.array([
+    [0, -1, 0, 0],
+    [0, 0, -1, 0],
+    [1, 0, 0, 0],
+    [0, 0, 0, 1]
+], dtype=np.float64)
+RDF_TO_FLU = FLU_TO_RDF.T
+
+
 class PointCloudItem(QGraphicsItem):
     """A QGraphicsItem that efficiently draws a large number of points."""
 
@@ -110,6 +119,19 @@ class ZoomableView(QGraphicsView):
 
 
 class CalibrationWidget(QWidget):
+    """
+    Widget for performing LiDAR-camera or LiDAR-LiDAR calibration. Has several tools
+    for calibration:
+    - LiDAR points projection on camera image
+    - LiDAR points visualization tweaks
+    - 2D-3D point pairing based calibration
+    - manual adjustment of calibration
+    - camera intrinsics overview.
+    
+    NOTE: this class is a mess, it handles both camera-LiDAR and dual-LiDAR calibration
+    which involves the use of many ifs and may have some inconsistencies due to lack
+    of testing. A refactor into two separate classes should be evaluated.
+    """
     calibration_completed = Signal(object)  # Signal to emit calibrated transform(s)
 
     def __init__(
@@ -133,6 +155,7 @@ class CalibrationWidget(QWidget):
         # The initial transform is the transformation from the LiDAR frame to the camera frame (extrinsics).
         self.initial_extrinsics = initial_transform
         self.extrinsics = np.copy(self.initial_extrinsics)
+        self.extrinsics_rdf = FLU_TO_RDF @ self.extrinsics
         self.second_lidar_transform = np.eye(4)  # Transform from master to second LiDAR
         self.occlusion_mask = None
         self.second_occlusion_mask = None
@@ -455,7 +478,7 @@ class CalibrationWidget(QWidget):
 
         K = np.array(self.camerainfo_msg.k).reshape(3, 3)
         h, w = self.camerainfo_msg.height, self.camerainfo_msg.width
-        extrinsics_3x4 = self.extrinsics[:3, :]
+        extrinsics_3x4 = self.extrinsics_rdf[:3, :]
 
         cleaner = LiDARCleaner(K, extrinsics_3x4, self.points_xyz.T, h, w)
         self.occlusion_mask = cleaner.run()
@@ -483,8 +506,8 @@ class CalibrationWidget(QWidget):
         if colorization_mode == "Distance":
             # Calculate distances for all valid points
             if hasattr(self, "valid_indices") and len(self.valid_indices) > 0:
-                tvec = self.extrinsics[:3, 3]
-                points_cam = (self.extrinsics[:3, :3] @ self.points_xyz.T).T + tvec
+                tvec = self.extrinsics_rdf[:3, 3]
+                points_cam = (self.extrinsics_rdf[:3, :3] @ self.points_xyz.T).T + tvec
                 valid_points_cam = points_cam[self.valid_indices]
                 distances = np.linalg.norm(valid_points_cam, axis=1)
                 min_dist, max_dist = np.quantile(distances, [0.01, 0.99])
@@ -555,6 +578,7 @@ class CalibrationWidget(QWidget):
         self.extrinsics[:3, :3] = Rotation.from_euler(
             "XYZ", [roll, pitch, yaw], degrees=True
         ).as_matrix()
+        self.extrinsics_rdf = FLU_TO_RDF @ self.extrinsics
         self.redraw_points()
         self.update_results_display()
         self._highlight_export_button()
@@ -739,6 +763,7 @@ class CalibrationWidget(QWidget):
         self.lidar_to_lidar_correspondences = {}
         self.update_corr_list()
         self.extrinsics = np.copy(self.initial_extrinsics)
+        self.extrinsics_rdf = FLU_TO_RDF @ self.extrinsics
         self.second_lidar_transform = np.eye(4)
         self.occlusion_mask = None
         self.second_occlusion_mask = None
@@ -805,6 +830,8 @@ class CalibrationWidget(QWidget):
         for item in self.scene.items():
             if not isinstance(item, QGraphicsPixmapItem) and not isinstance(item, PointCloudItem):
                 items_to_preserve.append(item)
+        # TODO: Debug items to preserve, it seems like the pointcloud is removed anyway
+        print("Items to preserve:", [item.__class__ for item in items_to_preserve])
 
         # Clear the scene and add the new image
         self.scene.clear()
@@ -861,14 +888,18 @@ class CalibrationWidget(QWidget):
         self.intrinsics_display.setPlainText(display_text)
 
     def redraw_points(self):
-        self.project_pointcloud(self.extrinsics, re_read_cloud=False)
+        self.project_pointcloud(re_read_cloud=False)
         if self.has_second_pointcloud:
             self.project_second_pointcloud()
         self.apply_view_button.setStyleSheet(self.default_button_style)
 
-    def project_pointcloud(self, extrinsics=None, re_read_cloud=True):
-        if extrinsics is not None:
-            self.extrinsics = extrinsics
+    def project_pointcloud(self, re_read_cloud=True):
+        if self.has_second_pointcloud:
+            # If LiDAR-to-LiDAR calibration is applied, assume they are both in FLU frame
+            extrinsics = self.extrinsics
+        else:
+            extrinsics = self.extrinsics_rdf
+        
         self.clear_all_highlighting()
         if self.point_cloud_item is not None and self.point_cloud_item.scene():
             self.scene.removeItem(self.point_cloud_item)
@@ -892,11 +923,11 @@ class CalibrationWidget(QWidget):
             return
 
         K = np.array(self.camerainfo_msg.k).reshape(3, 3)
-        rvec, _ = cv2.Rodrigues(self.extrinsics[:3, :3])
-        tvec = self.extrinsics[:3, 3]
+        rvec, _ = cv2.Rodrigues(extrinsics[:3, :3])
+        tvec = extrinsics[:3, 3]
         points_proj_cv, _ = cv2.projectPoints(self.points_xyz, rvec, tvec, K, None)
         points_proj_cv = points_proj_cv.reshape(-1, 2)
-        points_cam = (self.extrinsics[:3, :3] @ self.points_xyz.T).T + tvec
+        points_cam = (extrinsics[:3, :3] @ self.points_xyz.T).T + tvec
         z_cam = points_cam[:, 2]
 
         mask = (
@@ -1189,7 +1220,8 @@ class CalibrationWidget(QWidget):
         else:
             # Single LiDAR calibration
             calib_corr = [(p2d, corr["3d_mean"]) for p2d, corr in self.correspondences.items()]
-            self.extrinsics = calibration.calibrate(calib_corr, K, pnp_flag, lsq_method)
+            self.extrinsics_rdf = calibration.calibrate(calib_corr, K, pnp_flag, lsq_method)
+            self.extrinsics = RDF_TO_FLU @ self.extrinsics_rdf
 
         self.progress_bar.setVisible(False)
         self.project_pointcloud()
