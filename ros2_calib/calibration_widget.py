@@ -830,11 +830,10 @@ class CalibrationWidget(QWidget):
         for item in self.scene.items():
             if not isinstance(item, QGraphicsPixmapItem) and not isinstance(item, PointCloudItem):
                 items_to_preserve.append(item)
-        # TODO: Debug items to preserve, it seems like the pointcloud is removed anyway
-        print("Items to preserve:", [item.__class__ for item in items_to_preserve])
 
         # Clear the scene and add the new image
         self.scene.clear()
+        self.point_cloud_item = None
         q_image = QImage(self.cv_image.data, w, h, 3 * w, QImage.Format_RGB888)
         self.scene.addPixmap(QPixmap.fromImage(q_image))
 

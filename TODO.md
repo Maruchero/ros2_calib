@@ -19,4 +19,4 @@ Prioritario:
 [x] - verificare dove viene usato il suddetto algoritmo per capire se è tutto invertito
   [ ] - usata anche nella results view, 3 volte: verificare se va invertita anche lì
 [x] - modificare l'applicazione delle rotazioni in modo che applichi una matrice di rotazione sopra a quella degli estrinseci
-[ ] - sistemare rectify image perché cancella i punti del lidar
+[x] - sistemare rectify image perché cancella i punti del lidar
