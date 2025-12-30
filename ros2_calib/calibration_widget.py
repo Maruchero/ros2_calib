@@ -256,6 +256,11 @@ class CalibrationWidget(QWidget):
         self.point_size_spinbox.setRange(1, 10)
         self.point_size_spinbox.setValue(AppConstants.DEFAULT_POINT_SIZE)
         view_controls_layout.addRow("Point Size:", self.point_size_spinbox)
+        self.point_alpha_spinbox = QDoubleSpinBox()
+        self.point_alpha_spinbox.setRange(0.0, 1.0)
+        self.point_alpha_spinbox.setSingleStep(0.1)
+        self.point_alpha_spinbox.setValue(0.8)
+        view_controls_layout.addRow("Point Alpha:", self.point_alpha_spinbox)
         self.colormap_combo = QComboBox()
         self.colormap_combo.addItems(
             [
@@ -444,6 +449,7 @@ class CalibrationWidget(QWidget):
 
         self.default_button_style = UIStyles.DEFAULT_BUTTON
         self.point_size_spinbox.valueChanged.connect(self._on_view_params_changed)
+        self.point_alpha_spinbox.valueChanged.connect(self._on_view_params_changed)
         self.colormap_combo.currentTextChanged.connect(self._on_view_params_changed)
         self.colorization_mode_combo.currentTextChanged.connect(self._on_colorization_mode_changed)
         self.min_value_spinbox.valueChanged.connect(self._on_view_params_changed)
@@ -966,7 +972,7 @@ class CalibrationWidget(QWidget):
             )
 
         colors = cmap(norm_values)
-        colors[:, 3] = 0.8
+        colors[:, 3] = self.point_alpha_spinbox.value()
         self.point_cloud_item = PointCloudItem(
             self.points_proj_valid, colors, self.point_size_spinbox.value()
         )
@@ -1049,7 +1055,7 @@ class CalibrationWidget(QWidget):
         )
 
         colors = second_cmap(norm_values)
-        colors[:, 3] = 0.7  # Slightly more transparent to distinguish from master
+        colors[:, 3] = self.point_alpha_spinbox.value()
 
         self.second_point_cloud_item = PointCloudItem(
             self.second_points_proj_valid, colors, self.point_size_spinbox.value()
