@@ -1,6 +1,6 @@
 # TODO
 
-- quando si carica la bag controllare se fisheye usare cv2.fisheye_undistort
+[x] - quando si carica la bag controllare se fisheye usare cv2.fisheye_undistort
 - applicare rdf_to_flu quando si esporta la calibrazione
   - testare mettendo una nuova trasformazione in calib_manager.yaml
 - investigare sull'algoritmo di calibrazione automatica
@@ -11,7 +11,7 @@
 
 altre piccole modifiche che sarebbero carine
 [x] - mettere un alpha di trasparenza alla cloud per vedere attraverso i punti
-[ ] - non dover cliccre su apply view changes ogni volta ma che venga aggiornata in automatico quando cambia qualcosa in quelle impostazioni
+[x] - non dover cliccre su apply view changes ogni volta ma che venga aggiornata in automatico quando cambia qualcosa in quelle impostazioni
 [ ] - possibilità di passare a riga di comando bag, file calibrazione, topic camera e topic lidar su cui fare le calibrazioni per skippare tutta la scelta iniziale
 
 Prioritario:

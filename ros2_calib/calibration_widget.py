@@ -240,7 +240,7 @@ class CalibrationWidget(QWidget):
         self.display_image()  # Refresh the display
 
     def rectify_image(self, image):
-        """Apply camera undistortion to the image using cv2.undistort."""
+        """Apply camera undistortion to the image using cv2.undistort or cv2.fisheye.undistortImage."""
         if not self.has_significant_distortion():
             return image
 
@@ -250,9 +250,13 @@ class CalibrationWidget(QWidget):
 
         # Undistort the image
         try:
-            # Use cv2.undistort with the same camera matrix as newCameraMatrix
-            # This preserves the same image dimensions and focal length
-            rectified_image = cv2.undistort(image, K, dist_coeffs, None, K)
+            if self.camerainfo_msg.distortion_model == "fisheye":
+                # For fisheye, we need to ensure dist_coeffs has 4 elements (k1, k2, k3, k4)
+                rectified_image = cv2.fisheye.undistortImage(image, K, dist_coeffs[:4], Knew=K)
+            else:
+                # Use cv2.undistort with the same camera matrix as newCameraMatrix
+                # This preserves the same image dimensions and focal length
+                rectified_image = cv2.undistort(image, K, dist_coeffs, None, K)
             return rectified_image
         except Exception as e:
             print(f"[WARNING] Failed to rectify image: {e}")

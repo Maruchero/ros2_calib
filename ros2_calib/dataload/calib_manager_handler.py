@@ -76,7 +76,7 @@ class CalibManagerHandler:
                 ),
                 height=cam_data["height"],
                 width=cam_data["width"],
-                distortion_model="plumb_bob",
+                distortion_model="fisheye" if cam_data["fisheye"] else "plumb_bob",
                 d=cam_data["D"][:5],  # Take only first 5 distortion coefficients
                 k=k,
                 r=[],
