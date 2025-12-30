@@ -25,7 +25,7 @@ from functools import partial
 import cv2
 import matplotlib.cm as cm
 import numpy as np
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import QBrush, QColor, QImage, QKeyEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -194,6 +194,11 @@ class CalibrationWidget(QWidget):
         main_layout.addLayout(left_layout, 4)
         main_layout.addLayout(right_controls_layout, 1)
 
+        self.redraw_timer = QTimer()
+        self.redraw_timer.setSingleShot(True)
+        self.redraw_timer.setInterval(50)
+        self.redraw_timer.timeout.connect(self.redraw_points)
+
         self.display_image()
         self.project_pointcloud()
         if self.has_second_pointcloud:
@@ -201,6 +206,16 @@ class CalibrationWidget(QWidget):
         self._update_inputs_from_extrinsics()
         self._update_calibrate_button_highlight()
         self.display_camera_intrinsics()
+
+    def schedule_redraw(self):
+        """
+        Schedule a point cloud redraw.
+        
+        This acts as a debouncer: if multiple calls happen in quick succession
+        (e.g., spinning a scroll wheel), the timer resets, and the actual redraw
+        only happens once the activity settles.
+        """
+        self.redraw_timer.start()
 
     def has_significant_distortion(self):
         """Check if camera has significant distortion coefficients."""
@@ -304,11 +319,6 @@ class CalibrationWidget(QWidget):
         self.rectify_checkbox.toggled.connect(self.toggle_rectification)
         view_controls_layout.addRow(self.rectify_checkbox)
 
-        self.apply_view_button = QPushButton("Apply View Changes")
-        self.apply_view_button.clicked.connect(self.redraw_points)
-        view_controls_layout.addRow(self.apply_view_button)
-
-        # Add Clean Occluded Points button here
         self.clean_occlusion_button = QPushButton("Clean Occluded Points")
         self.clean_occlusion_button.clicked.connect(self.run_occlusion_cleaning)
         view_controls_layout.addRow(self.clean_occlusion_button)
@@ -448,12 +458,12 @@ class CalibrationWidget(QWidget):
         right_layout.addLayout(col2_layout, 40)
 
         self.default_button_style = UIStyles.DEFAULT_BUTTON
-        self.point_size_spinbox.valueChanged.connect(self._on_view_params_changed)
-        self.point_alpha_spinbox.valueChanged.connect(self._on_view_params_changed)
-        self.colormap_combo.currentTextChanged.connect(self._on_view_params_changed)
+        self.point_size_spinbox.valueChanged.connect(self.schedule_redraw)
+        self.point_alpha_spinbox.valueChanged.connect(self.schedule_redraw)
+        self.colormap_combo.currentTextChanged.connect(self.schedule_redraw)
         self.colorization_mode_combo.currentTextChanged.connect(self._on_colorization_mode_changed)
-        self.min_value_spinbox.valueChanged.connect(self._on_view_params_changed)
-        self.max_value_spinbox.valueChanged.connect(self._on_view_params_changed)
+        self.min_value_spinbox.valueChanged.connect(self.schedule_redraw)
+        self.max_value_spinbox.valueChanged.connect(self.schedule_redraw)
         return right_layout
 
     def keyPressEvent(self, event: QKeyEvent):
@@ -495,13 +505,10 @@ class CalibrationWidget(QWidget):
         self.progress_bar.setVisible(False)
         self.redraw_points()
 
-    def _on_view_params_changed(self):
-        self.apply_view_button.setStyleSheet(UIStyles.HIGHLIGHT_BUTTON)
-
     def _on_colorization_mode_changed(self):
         """Update min/max values when colorization mode changes."""
         self._update_min_max_values_for_mode()
-        self._on_view_params_changed()
+        self.schedule_redraw()
 
     def _update_min_max_values_for_mode(self):
         """Update min/max spinbox values based on current colorization mode."""
@@ -517,14 +524,22 @@ class CalibrationWidget(QWidget):
                 valid_points_cam = points_cam[self.valid_indices]
                 distances = np.linalg.norm(valid_points_cam, axis=1)
                 min_dist, max_dist = np.quantile(distances, [0.01, 0.99])
+                self.min_value_spinbox.blockSignals(True)
+                self.max_value_spinbox.blockSignals(True)
                 self.min_value_spinbox.setValue(min_dist)
                 self.max_value_spinbox.setValue(max_dist)
+                self.min_value_spinbox.blockSignals(False)
+                self.max_value_spinbox.blockSignals(False)
         else:
             # Intensity mode - use intensity values
             if hasattr(self, "intensities") and self.intensities.size > 0:
                 min_i, max_i = np.quantile(self.intensities, [0.01, 0.90])
+                self.min_value_spinbox.blockSignals(True)
+                self.max_value_spinbox.blockSignals(True)
                 self.min_value_spinbox.setValue(min_i)
                 self.max_value_spinbox.setValue(max_i)
+                self.min_value_spinbox.blockSignals(False)
+                self.max_value_spinbox.blockSignals(False)
 
     def _on_step_size_changed(self):
         self.step_size_ok_button.setStyleSheet(UIStyles.HIGHLIGHT_BUTTON)
@@ -585,7 +600,7 @@ class CalibrationWidget(QWidget):
             "XYZ", [roll, pitch, yaw], degrees=True
         ).as_matrix()
         self.extrinsics_rdf = FLU_TO_RDF @ self.extrinsics
-        self.redraw_points()
+        self.schedule_redraw()
         self.update_results_display()
         self._highlight_export_button()
 
@@ -595,12 +610,19 @@ class CalibrationWidget(QWidget):
     def _update_inputs_from_extrinsics(self):
         tvec = self.extrinsics[:3, 3]
         rpy = Rotation.from_matrix(self.extrinsics[:3, :3]).as_euler("XYZ", degrees=True)
+        
+        for widget in self.dof_widgets.values():
+            widget.blockSignals(True)
+            
         self.dof_widgets["x"].setValue(tvec[0])
         self.dof_widgets["y"].setValue(tvec[1])
         self.dof_widgets["z"].setValue(tvec[2])
         self.dof_widgets["roll"].setValue(rpy[0])
         self.dof_widgets["pitch"].setValue(rpy[1])
         self.dof_widgets["yaw"].setValue(rpy[2])
+        
+        for widget in self.dof_widgets.values():
+            widget.blockSignals(False)
 
     def toggle_selection_mode(self, checked):
         if checked:
@@ -896,7 +918,6 @@ class CalibrationWidget(QWidget):
         self.project_pointcloud(re_read_cloud=False)
         if self.has_second_pointcloud:
             self.project_second_pointcloud()
-        self.apply_view_button.setStyleSheet(self.default_button_style)
 
     def project_pointcloud(self, re_read_cloud=True):
         if self.has_second_pointcloud:
