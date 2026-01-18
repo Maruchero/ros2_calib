@@ -6,6 +6,13 @@
             "type": "python",
             "request": "launch",
             "module": "ros2_calib.main",
+            "args": [
+                "--lidar2cam",
+                "/home/marcello/Documents/UR/data/short_bag/short.mcap",
+                "/home/marcello/Documents/UR/ur.autopilot/calib_manager.yaml",
+                "/lidar_fc/cloud",
+                "/camera_fl/image"
+            ],
             "justMyCode": true
         }
     ]

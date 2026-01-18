@@ -21,15 +21,55 @@
 # SOFTWARE.
 
 import sys
+import time
 
 from PySide6.QtWidgets import QApplication
 
 from .main_window import MainWindow
+from .dataload.calib_manager_handler import CalibManagerHandler
+
+
+def validate_args(window: MainWindow):
+    if len(sys.argv) != 6:
+        print("[ERROR] Invalid number of arguments. Switching to GUI mode.")
+        return
+    
+    arg_mode, arg_bag_path, arg_calib_manager_path, arg_lidar_topic, arg_camera_topic = sys.argv[1:6]
+    
+    if arg_mode != "--lidar2cam":
+        print("[ERROR] Unsupported/Invalid mode argument. Switching to GUI mode.")
+        return
+    
+    window.select_calibration_type("LiDAR2Cam")
+    window.load_bag_from_path(arg_bag_path)
+    window.load_camerainfo_from_path(arg_calib_manager_path)
+    window.update_proceed_button_state()
+    if not window.proceed_button.isEnabled():
+        print("[ERROR] Invalid arguments. Switching to GUI mode.")
+        return
+    
+    if arg_lidar_topic not in [
+        window.pointcloud_topic_combo.itemText(i)
+        for i in range(window.pointcloud_topic_combo.count())
+    ]:
+        print(f"[ERROR] Invalid lidar topic: {arg_lidar_topic}. Switching to GUI mode.")
+        return
+    window.pointcloud_topic_combo.setCurrentText(arg_lidar_topic)
+    
+    if arg_camera_topic not in [
+        window.image_topic_combo.itemText(i)
+        for i in range(window.image_topic_combo.count())
+    ]:
+        print(f"[ERROR] Invalid camera topic: {arg_camera_topic}. Switching to GUI mode.")
+        return
+    window.image_topic_combo.setCurrentText(arg_camera_topic)
+    window.process_rosbag_data()
 
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
+    validate_args(window)
     window.show()
     sys.exit(app.exec())
 

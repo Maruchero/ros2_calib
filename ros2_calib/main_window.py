@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
         self.bag_file = None
         self.selected_topics = {}
         self.tf_tree = {}
+        self.calib_manager_handler = None
         self.current_transform = np.eye(4, dtype=np.float64)
         self.calibration_type = "LiDAR2Cam"  # Default type
         self.calibrated_transform = np.eye(4, dtype=np.float64)
@@ -432,9 +433,7 @@ class MainWindow(QMainWindow):
             self, "Open CameraInfo File", "", "YAML files (*.yaml *.yml);;All files (*)"
         )
         if file_path:
-            self.camerainfo_path_label.setText(file_path)
-            self.calib_manager_handler = CalibManagerHandler(file_path)
-            self.update_proceed_button_state()
+            self.load_camerainfo_from_path(file_path)
 
     def find_yaml_file(self, mcap_path):
         directory = os.path.dirname(mcap_path)
@@ -480,6 +479,15 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.bag_path_label.setText(f"Error loading bag: {str(e)}")
             self.bag_path_label.setStyleSheet("padding: 5px; border: 1px solid red;")
+            
+    def load_camerainfo_from_path(self, file_path):
+        try:
+            self.camerainfo_path_label.setText(file_path)
+            self.calib_manager_handler = CalibManagerHandler(file_path)
+            self.update_proceed_button_state()
+        except Exception as e:
+            self.camerainfo_path_label.setText(f"Error loading bag: {str(e)}")
+            self.camerainfo_path_label.setStyleSheet("padding: 5px; border: 1px solid red;")
 
     def update_topic_widgets(self):
         self.topic_list_widget.clear()
@@ -615,6 +623,7 @@ class MainWindow(QMainWindow):
                 [
                     self.image_topic_combo.currentText(),
                     self.pointcloud_topic_combo.currentText(),
+                    self.calib_manager_handler is not None,
                 ]
             )
         else:
