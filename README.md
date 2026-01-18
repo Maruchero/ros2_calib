@@ -138,6 +138,16 @@ python -m pip install .
 
 7. **Export results**: View transformation chains and export URDF-ready transforms
 
+### Command-Line Arguments
+
+You can also launch the application with command-line arguments for automated loading:
+
+```bash
+ros2_calib --lidar2cam <mcap_file> <camerainfo_file> <lidar_topic> <camera_topic>
+```
+
+This mode is supported for LiDAR-to-Camera calibration only. Camerainfo file is UR's `calib_manager.yaml`.
+
 ## Workflow Overview
 
 ```
