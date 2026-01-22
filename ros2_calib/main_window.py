@@ -1144,6 +1144,7 @@ class MainWindow(QMainWindow):
             self.calibrated_transform,
             self.original_source_frame,
             self.original_target_frame,
+            degrees=True,
         )
         all_frames = self._get_all_tf_frames()
         self.source_frame_combo.blockSignals(True)
@@ -1172,23 +1173,22 @@ class MainWindow(QMainWindow):
         self.update_embedded_graph(new_source, new_target)
 
         T_orig_src_to_new_src = self.find_transform_path(self.original_source_frame, new_source)
-        T_orig_tgt_to_new_tgt = self.find_transform_path(self.original_target_frame, new_target)
+        T_new_tgt_to_orig_tgt = self.find_transform_path(new_target, self.original_target_frame)
 
-        if T_orig_src_to_new_src is None or T_orig_tgt_to_new_tgt is None:
+        if T_orig_src_to_new_src is None or T_new_tgt_to_orig_tgt is None:
             self.final_transform_display.setPlainText(
                 "Error: Cannot find path from original frames in TF tree."
             )
             return
 
-        T_new_src_to_orig_src = np.linalg.inv(T_orig_src_to_new_src)
-        final_transform = T_new_src_to_orig_src @ self.calibrated_transform @ T_orig_tgt_to_new_tgt
+        final_transform = T_orig_src_to_new_src @ self.calibrated_transform @ T_new_tgt_to_orig_tgt
         self.display_transform_urdf(
-            self.final_transform_display, final_transform, new_source, new_target
+            self.final_transform_display, final_transform, new_source, new_target, degrees=True
         )
         self.current_final_transform = final_transform
 
     def display_transform_urdf(
-        self, text_widget: QTextEdit, transform: np.ndarray, parent: str, child: str
+        self, text_widget: QTextEdit, transform: np.ndarray, parent: str, child: str, degrees: bool = False
     ):
         from . import tf_transformations as tf
 
@@ -1198,6 +1198,8 @@ class MainWindow(QMainWindow):
         matrix_str = "\n".join(["  ".join([f"{val:8.4f}" for val in row]) for row in transform])
         xyz = tf.translation_from_matrix(transform)
         rpy = tf.euler_from_matrix(transform)
+        if degrees:
+            rpy = np.degrees(rpy)
         joint_name = f"joint_{parent.replace('/', '_')}_to_{child.replace('/', '_')}"
         urdf = f'<joint name="{joint_name}" type="fixed">\n  <parent link="{parent}" />\n  <child link="{child}" />\n  <origin xyz="{" ".join(map(str, xyz))}" rpy="{" ".join(map(str, rpy))}" />\n</joint>'
         text_widget.setPlainText(
