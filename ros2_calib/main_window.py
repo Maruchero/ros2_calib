@@ -1236,7 +1236,7 @@ class MainWindow(QMainWindow):
             self,
             "Save Target Transform",
             self.final_transform_yaml["name"],
-            "Text Files (*.txt);;All Files (*)",
+            "YAML files (*.yaml *.yml);;All files (*)",
         )
         if file_path:
             with open(file_path, "w") as f:
