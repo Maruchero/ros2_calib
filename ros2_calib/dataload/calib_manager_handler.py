@@ -36,13 +36,8 @@ class CalibManagerHandler:
         """
         x, y, z, roll, pitch, yaw = pose
 
-        # Convert degrees to radians for rotation
-        roll_rad = np.radians(roll)
-        pitch_rad = np.radians(pitch)
-        yaw_rad = np.radians(yaw)
-
         # Create rotation matrix from Euler angles
-        rotation = R.from_euler("xyz", [roll_rad, pitch_rad, yaw_rad])
+        rotation = R.from_euler("xyz", [roll, pitch, yaw], degrees=True)
         rot_matrix = rotation.as_matrix()
 
         # Create transformation matrix

@@ -1067,6 +1067,7 @@ class MainWindow(QMainWindow):
                     float(self.ry_input.text()),
                     float(self.rz_input.text()),
                 ],
+                degrees=True,
             )
             self.current_transform = np.eye(4, dtype=np.float64)
             self.current_transform[:3, :3] = rot.as_matrix()
@@ -1081,7 +1082,7 @@ class MainWindow(QMainWindow):
 
     def update_manual_inputs_from_matrix(self):
         trans = tf.translation_from_matrix(self.current_transform)
-        euler = tf.euler_from_matrix(self.current_transform)
+        euler = np.degrees(tf.euler_from_matrix(self.current_transform))
         self.tx_input.setText(f"{trans[0]:.6f}")
         self.ty_input.setText(f"{trans[1]:.6f}")
         self.tz_input.setText(f"{trans[2]:.6f}")
@@ -1099,7 +1100,7 @@ class MainWindow(QMainWindow):
             ["  ".join([f"{val:8.4f}" for val in row]) for row in self.current_transform]
         )
         trans = tf.translation_from_matrix(self.current_transform)
-        rpy = tf.euler_from_matrix(self.current_transform)
+        rpy = np.degrees(tf.euler_from_matrix(self.current_transform))
 
         combined_display = f"Transformation Matrix:\n{matrix_str}\n\nTranslation and Rotation:\nXYZ: [{trans[0]:.4f}, {trans[1]:.4f}, {trans[2]:.4f}]\nRPY: [{rpy[0]:.4f}, {rpy[1]:.4f}, {rpy[2]:.4f}]"
         self.transform_display.setPlainText(combined_display)
@@ -1144,7 +1145,6 @@ class MainWindow(QMainWindow):
             self.calibrated_transform,
             self.original_source_frame,
             self.original_target_frame,
-            degrees=True,
         )
         all_frames = self._get_all_tf_frames()
         self.source_frame_combo.blockSignals(True)
@@ -1183,12 +1183,12 @@ class MainWindow(QMainWindow):
 
         final_transform = T_orig_src_to_new_src @ self.calibrated_transform @ T_new_tgt_to_orig_tgt
         self.display_transform_urdf(
-            self.final_transform_display, final_transform, new_source, new_target, degrees=True
+            self.final_transform_display, final_transform, new_source, new_target,
         )
         self.current_final_transform = final_transform
 
     def display_transform_urdf(
-        self, text_widget: QTextEdit, transform: np.ndarray, parent: str, child: str, degrees: bool = False
+        self, text_widget: QTextEdit, transform: np.ndarray, parent: str, child: str
     ):
         from . import tf_transformations as tf
 
@@ -1197,9 +1197,7 @@ class MainWindow(QMainWindow):
             return
         matrix_str = "\n".join(["  ".join([f"{val:8.4f}" for val in row]) for row in transform])
         xyz = tf.translation_from_matrix(transform)
-        rpy = tf.euler_from_matrix(transform)
-        if degrees:
-            rpy = np.degrees(rpy)
+        rpy = np.degrees(tf.euler_from_matrix(transform))
         joint_name = f"joint_{parent.replace('/', '_')}_to_{child.replace('/', '_')}"
         urdf = f'<joint name="{joint_name}" type="fixed">\n  <parent link="{parent}" />\n  <child link="{child}" />\n  <origin xyz="{" ".join(map(str, xyz))}" rpy="{" ".join(map(str, rpy))}" />\n</joint>'
         text_widget.setPlainText(
