@@ -218,7 +218,7 @@ class MainWindow(QMainWindow):
         self.bag_path_label.setStyleSheet("padding: 5px; border: 1px solid gray;")
         bag_section_layout.addWidget(self.bag_path_label, 1)
         self.load_layout.addLayout(bag_section_layout)
-        
+
         # CameraInfo file input section
         camerainfo_section_layout = QHBoxLayout()
         self.load_camerainfo_button = QPushButton("Load CameraInfo File")
@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
         self.camerainfo_path_label.setStyleSheet("padding: 5px; border: 1px solid gray;")
         camerainfo_section_layout.addWidget(self.camerainfo_path_label, 1)
         self.load_layout.addLayout(camerainfo_section_layout)
-        
+
         topic_list_group = QGroupBox("Available Topics")
         topic_list_layout = QVBoxLayout(topic_list_group)
         self.topic_list_widget = QListWidget()
@@ -427,7 +427,7 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Rosbag", "", "MCAP Rosbag (*.mcap)")
         if file_path:
             self.load_bag_from_path(file_path)
-            
+
     def load_camerainfo_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Open CameraInfo File", "", "YAML files (*.yaml *.yml);;All files (*)"
@@ -479,7 +479,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.bag_path_label.setText(f"Error loading bag: {str(e)}")
             self.bag_path_label.setStyleSheet("padding: 5px; border: 1px solid red;")
-            
+
     def load_camerainfo_from_path(self, file_path):
         try:
             self.camerainfo_path_label.setText(file_path)
@@ -974,7 +974,7 @@ class MainWindow(QMainWindow):
             self.current_transform = transform_matrix
             self.update_transform_display()
             self.update_manual_inputs_from_matrix()
-            
+
     def find_transform_path(self, from_frame: str, to_frame: str):
         if from_frame == to_frame:
             return np.eye(4)
@@ -1186,6 +1186,10 @@ class MainWindow(QMainWindow):
             self.final_transform_display, final_transform, new_source, new_target,
         )
         self.current_final_transform = final_transform
+        self.final_transform_yaml = {
+            "name": f"calibration_{new_source}_to_{new_target}.yaml",
+            "content": self.transform_to_yaml(new_source, new_target, final_transform),
+        }
 
     def display_transform_urdf(
         self, text_widget: QTextEdit, transform: np.ndarray, parent: str, child: str
@@ -1204,6 +1208,18 @@ class MainWindow(QMainWindow):
             f"Transform: {parent} → {child}\nMatrix:\n{matrix_str}\n\nURDF Snippet:\n{urdf}"
         )
 
+    def transform_to_yaml(self, source, target, transform: np.ndarray) -> str:
+        from . import tf_transformations as tf
+
+        xyz = tf.translation_from_matrix(transform)
+        rpy = np.degrees(tf.euler_from_matrix(transform))
+        out = (
+            f"baseLink: {source}\n"
+            f"targetLink: {target}\n"
+            f"tf: [{', '.join(map(str, xyz))}, {', '.join(map(str, rpy))}]\n"
+        )
+        return out
+
     def update_embedded_graph(self, source_frame: str, target_frame: str):
         self.init_graph_placeholder()
         if not self.tf_tree:
@@ -1217,11 +1233,14 @@ class MainWindow(QMainWindow):
 
     def export_calibration_result(self):
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Target Transform", "", "Text Files (*.txt);;All Files (*)"
+            self,
+            "Save Target Transform",
+            self.final_transform_yaml["name"],
+            "Text Files (*.txt);;All Files (*)",
         )
         if file_path:
             with open(file_path, "w") as f:
-                f.write(self.final_transform_display.toPlainText())
+                f.write(self.final_transform_yaml["content"])
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
