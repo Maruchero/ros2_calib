@@ -43,32 +43,26 @@ def get_topic_info(bag_file, ros_version="JAZZY") -> List[tuple]:
     with open(bag_file, "rb") as f:
         reader = make_reader(f)
         summary = reader.get_summary()
-        
-        if summary and summary.channels:
+
+        if summary and summary.channels and summary.statistics:
             for channel_id, channel in summary.channels.items():
-                msg_count = summary.statistics.message_count if summary.statistics else 0
+                msg_count = summary.statistics.channel_message_counts.get(channel_id, 0)
                 schema = summary.schemas[channel.schema_id]
                 topics.append((channel.topic, schema.name, msg_count))
-                
+
     return topics
 
 
 def get_total_message_count(bag_file, ros_version="JAZZY") -> int:
     """Get total message count from bag file."""
-    msgs = 0
 
     with open(bag_file, "rb") as f:
         reader = make_reader(f)
         summary = reader.get_summary()
         if summary and summary.statistics:
             return summary.statistics.message_count
-        
-        if summary and summary.channels:
-            for channel_id, channel in summary.channels.items():
-                msg_count = summary.statistics.message_count if summary.statistics else 0
-                msgs += msg_count
 
-    return msgs
+    return 0
 
 
 def iterate_all_messages(bag_file: str, ros_version="JAZZY"):
