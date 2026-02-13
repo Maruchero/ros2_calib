@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
         self.calibration_type = calib_type
         print(f"[DEBUG] Selected calibration type: {calib_type}")
         self.update_load_view_for_calibration_type()
-        self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW)
+        self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
 
     def _apply_button_shadow(self, button: QPushButton) -> None:
         shadow = QGraphicsDropShadowEffect(button)
@@ -280,7 +280,7 @@ class MainWindow(QMainWindow):
 
         back_button_layout = QHBoxLayout()
         self.back_button = QPushButton("← Back to Topic Selection")
-        self.back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW))
+        self.back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(views.LOAD_VIEW))
         back_button_layout.addWidget(self.back_button)
         back_button_layout.addStretch()
         self.transform_layout.addLayout(back_button_layout)
@@ -795,7 +795,7 @@ class MainWindow(QMainWindow):
                     f"Select Initial Transformation: {self.lidar_frame} → {self.camera_frame}"
                 )
                 self.load_tf_topics_in_transform_view()
-                self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
+                self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW)
 
         if hasattr(self, "processing_worker") and self.processing_worker:
             self.processing_worker.deleteLater()
@@ -824,7 +824,7 @@ class MainWindow(QMainWindow):
             f"Select Initial Transformation: {self.lidar_frame} → {self.lidar2_frame}"
         )
         self.load_tf_topics_in_transform_view()
-        self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
+        self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW)
 
     def on_frame_selected(self, frame_index: int):
         print(f"[DEBUG] Frame {frame_index + 1} selected for LiDAR2Cam calibration.")
@@ -844,7 +844,7 @@ class MainWindow(QMainWindow):
             f"Select Initial Transformation: {self.lidar_frame} → {self.camera_frame}"
         )
         self.load_tf_topics_in_transform_view()
-        self.stacked_widget.setCurrentIndex(views.LOAD_VIEW)
+        self.stacked_widget.setCurrentIndex(views.TRANSFORM_VIEW)
 
     def on_processing_failed(self, error_message):
         print(f"[ERROR] Rosbag processing failed: {error_message}")
