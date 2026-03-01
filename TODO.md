@@ -1,6 +1,6 @@
 # TODO
 
-[ ] - Fix frame selection view: for some reason there is only one frame shown
+[x] - Fix frame selection view: for some reason there is only one frame shown
     [ ] - BUG disallineamento temporale tra camera frame e lidar frame
 
 [ ] - (optional) verificare che l'esportazione della calibrazione funzioni anche con source_frame e target_frame diversi da quelli originali
