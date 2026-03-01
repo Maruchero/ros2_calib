@@ -367,7 +367,7 @@ class CalibrationWidget(QWidget):
         self.pnp_solver_combo.addItems(["Iterative", "SQPnP", "None"])
         calib_controls_layout.addRow("RANSAC:", self.pnp_solver_combo)
         self.lsq_method_combo = QComboBox()
-        self.lsq_method_combo.addItems(["lm", "trf", "dogbox"])
+        self.lsq_method_combo.addItems(["lm", "trf", "dogbox", "None"])
         calib_controls_layout.addRow("LSQ Method:", self.lsq_method_combo)
         col1_layout.addWidget(calib_group)
 

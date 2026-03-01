@@ -85,18 +85,23 @@ def calibrate(
             print(f"An OpenCV error occurred during RANSAC: {e}")
             print("Falling back to simple least squares with all points.")
 
-    print("\nRefining pose with inliers using least squares optimization...")
-    res = least_squares(
-        objective_function,
-        initial_params,
-        args=(points_3d, points_2d, K),
-        method=lsq_method,
-        verbose=lsq_verbose,
-    )
+    print(f"\nRefining pose with inliers using least squares optimization ({lsq_method})...")
+    if lsq_method is not None and lsq_method.lower() != "none":
+        res = least_squares(
+            objective_function,
+            initial_params,
+            args=(points_3d, points_2d, K),
+            method=lsq_method,
+            verbose=lsq_verbose,
+        )
+        rvec_opt = res.x[:3]
+        tvec_opt = res.x[3:]
+    else:
+        print("Skipping least squares refinement as requested.")
+        rvec_opt = initial_params[:3]
+        tvec_opt = initial_params[3:]
 
     # --- Convert result to 4x4 matrix ---
-    rvec_opt = res.x[:3]
-    tvec_opt = res.x[3:]
     R_opt, _ = cv2.Rodrigues(rvec_opt)
 
     extrinsics = np.identity(4)
