@@ -163,6 +163,7 @@ class CalibrationWidget(QWidget):
         # Image rectification state
         self.original_cv_image = None
         self.is_rectification_enabled = False
+        self.is_lidar_distortion_enabled = True
 
         self.selection_mode = None
         self.selected_2d_point = None
@@ -239,6 +240,11 @@ class CalibrationWidget(QWidget):
         self.is_rectification_enabled = enabled
         self.display_image()  # Refresh the display
 
+    def toggle_lidar_distortion(self, enabled):
+        """Toggle LiDAR points distortion on/off."""
+        self.is_lidar_distortion_enabled = enabled
+        self.schedule_redraw()
+
     def rectify_image(self, image):
         """Apply camera undistortion to the image using cv2.undistort or cv2.fisheye.undistortImage."""
         if not self.has_significant_distortion():
@@ -313,15 +319,23 @@ class CalibrationWidget(QWidget):
         # Image rectification checkbox
         self.rectify_checkbox = QCheckBox("Rectify Image")
         self.rectify_checkbox.setToolTip("Undistort the image using camera distortion parameters")
-        # Only enable if distortion coefficients are available
-        has_distortion = self.has_significant_distortion()
-        self.rectify_checkbox.setEnabled(has_distortion)
-        # Enable by default if distortion is detected
-        if has_distortion:
-            self.is_rectification_enabled = True
-            self.rectify_checkbox.setChecked(True)
-        self.rectify_checkbox.toggled.connect(self.toggle_rectification)
         view_controls_layout.addRow(self.rectify_checkbox)
+
+        # LiDAR distortion checkbox
+        self.distort_lidar_checkbox = QCheckBox("Distort LiDAR Points")
+        self.distort_lidar_checkbox.setToolTip("Apply camera distortion to LiDAR points projection")
+        view_controls_layout.addRow(self.distort_lidar_checkbox)
+        
+        # Enable distortion checkboxes only if significant distortion is present
+        # Also, if present, distort lidar points by default
+        has_distortion = self.has_significant_distortion()
+        if has_distortion:
+            self.is_lidar_distortion_enabled = True
+        self.rectify_checkbox.setEnabled(has_distortion)
+        self.distort_lidar_checkbox.setEnabled(has_distortion)
+        self.distort_lidar_checkbox.setChecked(self.is_lidar_distortion_enabled)
+        self.rectify_checkbox.toggled.connect(self.toggle_rectification)
+        self.distort_lidar_checkbox.toggled.connect(self.toggle_lidar_distortion)
 
         self.clean_occlusion_button = QPushButton("Clean Occluded Points")
         self.clean_occlusion_button.clicked.connect(self.run_occlusion_cleaning)
@@ -614,17 +628,17 @@ class CalibrationWidget(QWidget):
     def _update_inputs_from_extrinsics(self):
         tvec = self.extrinsics[:3, 3]
         rpy = Rotation.from_matrix(self.extrinsics[:3, :3]).as_euler("XYZ", degrees=True)
-        
+
         for widget in self.dof_widgets.values():
             widget.blockSignals(True)
-            
+
         self.dof_widgets["x"].setValue(tvec[0])
         self.dof_widgets["y"].setValue(tvec[1])
         self.dof_widgets["z"].setValue(tvec[2])
         self.dof_widgets["roll"].setValue(rpy[0])
         self.dof_widgets["pitch"].setValue(rpy[1])
         self.dof_widgets["yaw"].setValue(rpy[2])
-        
+
         for widget in self.dof_widgets.values():
             widget.blockSignals(False)
 
@@ -929,7 +943,7 @@ class CalibrationWidget(QWidget):
             extrinsics = self.extrinsics
         else:
             extrinsics = self.extrinsics_rdf
-        
+
         self.clear_all_highlighting()
         if self.point_cloud_item is not None and self.point_cloud_item.scene():
             self.scene.removeItem(self.point_cloud_item)
@@ -953,9 +967,16 @@ class CalibrationWidget(QWidget):
             return
 
         K = np.array(self.camerainfo_msg.k).reshape(3, 3)
+        dist_coeffs = (
+            np.array(self.camerainfo_msg.d)
+            if self.is_lidar_distortion_enabled
+            else None
+        )
         rvec, _ = cv2.Rodrigues(extrinsics[:3, :3])
         tvec = extrinsics[:3, 3]
-        points_proj_cv, _ = cv2.projectPoints(self.points_xyz, rvec, tvec, K, None)
+        points_proj_cv, _ = cv2.projectPoints(
+            self.points_xyz, rvec, tvec, K, dist_coeffs
+        )
         points_proj_cv = points_proj_cv.reshape(-1, 2)
         points_cam = (extrinsics[:3, :3] @ self.points_xyz.T).T + tvec
         z_cam = points_cam[:, 2]
